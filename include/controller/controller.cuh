@@ -48,14 +48,13 @@ __device__ void main_loop(const globals &g, ::megakernel::state<config> &kvms) {
             // TODO needed?
             kittens::warp::sync();
 
-            if (laneid == 0) {
-                if constexpr (config::TIMING_RECORD_ENABLED) {
+            if constexpr (config::TIMING_RECORD_ENABLED) {
+                if (laneid == 0) {
                     kvms.record(TEVENT_CONTROLLER_END);
-                    store_timings_and_reset<config, globals>(
-                        &kvms.all_instructions[kvms.instruction_ring]
-                             .timings[0],
-                        last_slot_instruction_index, g);
                 }
+                store_timings_and_reset<config, globals>(
+                &kvms.all_instructions[kvms.instruction_ring].timings[0],
+                last_slot_instruction_index, g);
             }
         }
 

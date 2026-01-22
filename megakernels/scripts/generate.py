@@ -23,6 +23,7 @@ from megakernels.scheduler import (
     assign_to_sms,
     tensorize_instructions,
 )
+from megakernels.scripts.perfetto_utils import export_all_workers, detect_clock_rate_mhz
 
 
 class ScriptConfig(pydra.Config):
@@ -205,6 +206,16 @@ def main(config: ScriptConfig):
     print(f"Fwd per second: {fwd_per_second:.2f}")
     tokens_per_second = config.batch_size * fwd_per_second
     print(f"Tokens per second: {tokens_per_second:.2f}")
+
+
+    # ====== 导出 Perfetto timeline ======
+    if config.mode == "mk":
+
+        clock_mhz = detect_clock_rate_mhz(gpu_index=0)  # 按需设定GPU索引
+        print(f"clock_mhz {clock_mhz}")
+
+        print("\n=== Exporting Perfetto Traces ===")
+        export_all_workers(schedule, output_dir="/home/ubuntu/memory-management/Megakernels/timeline", clock_rate_mhz=clock_mhz)
 
 
 if __name__ == "__main__":
