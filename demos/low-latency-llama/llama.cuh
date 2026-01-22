@@ -116,6 +116,8 @@ struct globals_t {
     norm_weights_t mlp_norm_weights;
     weights_t up_weights;
     weights_t gate_weights;
+    weights_t up_weights_host;
+    weights_t gate_weights_host;
     weights_big_indim_t down_weights;
     norm_weights_t lm_head_norm_weights;
     weights_t lm_head_weights;

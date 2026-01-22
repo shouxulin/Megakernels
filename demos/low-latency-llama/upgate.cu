@@ -45,8 +45,11 @@ template <typename Config, typename Globals> struct rms_upgate_silu {
                   kittens::semaphore &sem) {
             auto block_idx = inst.block_idxs[iter / 2];
             if (iter % 2 == 0) {
+                // kittens::tma::load_async<dim::ROW, cache_policy::EVICT_FIRST>(
+                //     weight_chunk, g.up_weights,
+                //     {inst.layer_idx, block_idx, col_idx}, sem);
                 kittens::tma::load_async<dim::ROW, cache_policy::EVICT_FIRST>(
-                    weight_chunk, g.up_weights,
+                    weight_chunk, g.up_weights_host,
                     {inst.layer_idx, block_idx, col_idx}, sem);
             } else {
                 kittens::tma::load_async<dim::ROW, cache_policy::EVICT_FIRST>(

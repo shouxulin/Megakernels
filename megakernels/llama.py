@@ -92,15 +92,20 @@ def attention(
     key_states: Tensor,
     value_states: Tensor,
     kv_cache: KV_Cache,
+    kv_cache_host: KV_Cache,
     position_ids: Tensor,
     seq_len: int,
 ) -> Tensor:
     bsz, new_tok_seq_len = query_states.shape[:2]
 
     k_cache, v_cache = kv_cache
+    k_cache_host, v_cache_host = kv_cache_host
 
     k_cache[:, position_ids] = key_states
     v_cache[:, position_ids] = value_states
+
+    k_cache_host[:, position_ids] = key_states.cpu()
+    v_cache_host[:, position_ids] = value_states.cpu()
 
     def shape_for_sdpa(x: Tensor):
         return rearrange(x, "b l h d -> b h l d")
@@ -228,6 +233,7 @@ class LlamaAttention(nn.Module):
         )
 
         self.kv_cache: KV_Cache | None = None
+        self.kv_cache_host : KV_Cache | None = None
 
     def forward(
         self,
@@ -237,6 +243,7 @@ class LlamaAttention(nn.Module):
         assert batch_state.position_embeddings is not None
         assert batch_state.position_ids is not None
         assert self.kv_cache is not None
+        assert self.kv_cache_host is not None
         assert batch_state.seq_len is not None
 
         inp = batch_state.hidden_states
@@ -280,6 +287,7 @@ class LlamaAttention(nn.Module):
             key_states,
             value_states,
             self.kv_cache,
+            self.kv_cache_host,
             batch_state.position_ids,
             seq_len=batch_state.seq_len,
         )
@@ -497,6 +505,25 @@ class StackedParams:
     gate_proj: Tensor
     down_proj: Tensor
 
+    def move_to_device(self, device: DeviceType):
+        self.qkv_proj = self.qkv_proj.to(device)
+        self.o_proj = self.o_proj.to(device)
+        self.attn_ln_weight = self.attn_ln_weight.to(device)
+        self.mlp_ln_weight = self.mlp_ln_weight.to(device)
+        self.up_proj = self.up_proj.to(device)
+        self.gate_proj = self.gate_proj.to(device)
+        self.down_proj = self.down_proj.to(device)
+
+    def pin_memory(self):
+        self.qkv_proj = self.qkv_proj.pin_memory()
+        self.o_proj = self.o_proj.pin_memory()
+        self.attn_ln_weight = self.attn_ln_weight.pin_memory()
+        self.mlp_ln_weight = self.mlp_ln_weight.pin_memory()
+        self.up_proj = self.up_proj.pin_memory()
+        self.gate_proj = self.gate_proj.pin_memory()
+        self.down_proj = self.down_proj.pin_memory()
+        return self
+
 
 class LlamaForCausalLM(nn.Module):
     def __init__(
@@ -564,14 +591,38 @@ class LlamaForCausalLM(nn.Module):
         )
         v_cache = k_cache.clone()
 
+
+        print("Setting up KV cache with shape in host memory:", k_cache.shape)
+
+        k_cache_host = torch.zeros(
+            (
+                self.config.num_hidden_layers,
+                self.extra_config.max_batch_size,
+                self.extra_config.max_len_override
+                or self.config.max_position_embeddings,
+                self.config.num_key_value_heads,
+                self.config.head_dim,
+            ),
+            device="cpu",
+            dtype=self.dtype,
+        )
+        v_cache_host = k_cache_host.clone()
+
+
         self.stacked_kv_cache = (k_cache, v_cache)
+        self.stacked_kv_cache_host = (k_cache_host, v_cache_host)
 
         for layer_idx in range(self.config.num_hidden_layers):
             layer: LlamaBlock = self.model.layers[layer_idx]  # type: ignore
             layer.self_attn.kv_cache = (
                 self.stacked_kv_cache[0][layer_idx],
-                self.stacked_kv_cache[1][layer_idx],
+                self.stacked_kv_cache[1][layer_idx]
             )
+            layer.self_attn.kv_cache_host = (
+                self.stacked_kv_cache_host[0][layer_idx],
+                self.stacked_kv_cache_host[1][layer_idx]
+            )
+
 
     def to(self, device: DeviceType | None = None, dtype: torch.dtype | None = None):  # type: ignore
         if device is not None:

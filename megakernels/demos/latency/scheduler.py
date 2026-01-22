@@ -48,6 +48,11 @@ def make_globals(
 
     stacked_params = model.stacked_params
 
+    gate_proj_host = stacked_params.gate_proj.clone().to("cpu").pin_memory()
+    up_proj_host = stacked_params.up_proj.clone().to("cpu").pin_memory()
+
+
+
     max_attn_partitions = get_sm_count(device)
 
     barriers = torch.zeros(
@@ -68,6 +73,8 @@ def make_globals(
         mlp_ln_weights=stacked_params.mlp_ln_weight,
         up_proj_weights=stacked_params.up_proj,
         gate_proj_weights=stacked_params.gate_proj,
+        up_proj_weights_host=up_proj_host,
+        gate_proj_weights_host=gate_proj_host,
         down_proj_weights=stacked_params.down_proj,
         lm_head_norm_weights=model.lm_head.input_norm.weight,
         lm_head_weights=model.lm_head.lm_head.weight,

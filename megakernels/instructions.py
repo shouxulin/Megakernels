@@ -16,6 +16,8 @@ class BaseGlobals:
     mlp_ln_weights: Tensor
     up_proj_weights: Tensor
     gate_proj_weights: Tensor
+    up_proj_weights_host: Tensor
+    gate_proj_weights_host: Tensor
     down_proj_weights: Tensor
     lm_head_norm_weights: Tensor
     lm_head_weights: Tensor
