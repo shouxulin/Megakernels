@@ -23,7 +23,7 @@ from megakernels.scheduler import (
     assign_to_sms,
     tensorize_instructions,
 )
-from megakernels.scripts.perfetto_utils import export_all_workers, detect_clock_rate_mhz
+from megakernels.scripts.perfetto_utils import export_all_workers, detect_clock_rate_mhz, export_consumer_chunks
 
 
 class ScriptConfig(pydra.Config):
@@ -48,6 +48,7 @@ class ScriptConfig(pydra.Config):
     sched: str = "rr"
     setting: str = "latency"
     memory_fraction: float | None = None
+    timeline_file: str = "timeline.json"
 
     def finalize(self):
         if self.setting == "latency" and self.mode in ["mk", "pyvm"]:
@@ -172,7 +173,9 @@ def main(config: ScriptConfig):
         end_event = torch.cuda.Event(enable_timing=True)
         start_event.record()
         cpu_start = time.time()
+        torch.cuda.nvtx.range_push("generation")
         gen.generate(output_tokens, prompt_len, config.ntok - 1)
+        torch.cuda.nvtx.range_pop()
         cpu_end = time.time()
         end_event.record()
         torch.cuda.synchronize()
@@ -215,8 +218,12 @@ def main(config: ScriptConfig):
         print(f"clock_mhz {clock_mhz}")
 
         print("\n=== Exporting Perfetto Traces ===")
-        export_all_workers(schedule, output_dir="/home/ubuntu/memory-management/Megakernels/timeline", clock_rate_mhz=clock_mhz)
-
+        export_all_workers(schedule, output_file=f"/home/ubuntu/memory-management/Megakernels/timeline/{config.timeline_file}", clock_rate_mhz=clock_mhz)
+        # export_consumer_chunks(
+        #     schedule,
+        #     output_file="/home/ubuntu/memory-management/Megakernels/timeline/consumer_chunks.json",
+        #     clock_rate_mhz=clock_mhz,
+        # )
 
 if __name__ == "__main__":
     pydra.run(main)

@@ -80,7 +80,7 @@ OPCODE_NAMES = {
 
 def export_to_perfetto(
     schedule,
-    worker_name: str = "consumer",
+    worker_names: List[str] = ["consumer"],
     output_file: str = "timeline.json",
     clock_rate_mhz: float = 1800.0,
 ) -> str:
@@ -99,60 +99,59 @@ def export_to_perfetto(
     
     timings = schedule.globs.timings.cpu()  # [num_sms, max_queue_len, 128]
     instructions = schedule.globs.instructions.cpu()  # [num_sms, max_queue_len, 32]
-    
-    if worker_name not in WORKER_EVENTS:
-        raise ValueError(f"Unknown worker: {worker_name}. Available: {list(WORKER_EVENTS.keys())}")
-    
-    start_event_id, end_event_id = WORKER_EVENTS[worker_name]
-    
+
     events = []
-    
-    # Iterate over all SMs and instructions
-    for sm_id in range(timings.shape[0]):
-        for instr_idx in range(timings.shape[1]):
-            start_cycles = timings[sm_id, instr_idx, start_event_id].item()
-            end_cycles = timings[sm_id, instr_idx, end_event_id].item()
-            
-            if start_cycles <= 0 or end_cycles <= 0:
-                continue
-            
-            # convert to microseconds
-            start_us = start_cycles / clock_rate_mhz
-            end_us = end_cycles / clock_rate_mhz
-            duration_us = end_us - start_us
-            
-            # Skip events with zero or negative duration
-            if duration_us <= 0:
-                continue
-            
-            # get opcode and operation name
-            opcode = instructions[sm_id, instr_idx, 0].item()
-            op_name = OPCODE_NAMES.get(opcode, f"Op{opcode}")
-            
-            # create event name
-            event_name = f"{op_name}:{worker_name}"
-            
-            # create Perfetto event (Complete event)
-            event = {
-                "name": event_name,
-                "ph": "X",  # Complete event
-                "ts": start_us,  # timestamp in microseconds
-                "dur": duration_us,  # duration in microseconds
-                "pid": sm_id,  # SM ID as process
-                "tid": worker_name,  # Worker name as thread
-                "args": {
-                    "sm_id": sm_id,
-                    "instruction_index": instr_idx,
-                    "opcode": opcode,
-                    "operation": op_name,
-                    "start_cycles": start_cycles,
-                    "end_cycles": end_cycles,
-                    "start_us": start_us,
-                    "end_us": end_us,
-                },
-            }
-            
-            events.append(event)
+
+    for worker_name in worker_names:
+        start_event_id, end_event_id = WORKER_EVENTS[worker_name]
+        
+        
+        # Iterate over all SMs and instructions
+        for sm_id in range(timings.shape[0]):
+            for instr_idx in range(timings.shape[1]):
+                start_cycles = timings[sm_id, instr_idx, start_event_id].item()
+                end_cycles = timings[sm_id, instr_idx, end_event_id].item()
+                
+                if start_cycles <= 0 or end_cycles <= 0:
+                    continue
+                
+                # convert to microseconds
+                start_us = start_cycles / clock_rate_mhz
+                end_us = end_cycles / clock_rate_mhz
+                duration_us = end_us - start_us
+                
+                # Skip events with zero or negative duration
+                if duration_us <= 0:
+                    continue
+                
+                # get opcode and operation name
+                opcode = instructions[sm_id, instr_idx, 0].item()
+                op_name = OPCODE_NAMES.get(opcode, f"Op{opcode}")
+                
+                # create event name
+                event_name = f"{op_name}"
+                
+                # create Perfetto event (Complete event)
+                event = {
+                    "name": event_name,
+                    "ph": "X",  # Complete event
+                    "ts": start_us,  # timestamp in microseconds
+                    "dur": duration_us,  # duration in microseconds
+                    "pid": sm_id,  # SM ID as process
+                    "tid": worker_name,  # Worker name as thread
+                    "args": {
+                        "sm_id": sm_id,
+                        "instruction_index": instr_idx,
+                        "opcode": opcode,
+                        "operation": op_name,
+                        "start_cycles": start_cycles,
+                        "end_cycles": end_cycles,
+                        "start_us": start_us,
+                        "end_us": end_us,
+                    },
+                }
+                
+                events.append(event)
     
     # Write JSON file
     with open(output_file, 'w') as f:
@@ -165,9 +164,9 @@ def export_to_perfetto(
 
 def export_all_workers(
     schedule,
-    output_dir: str = ".",
+    output_file: str = ".",
     clock_rate_mhz: float = 1800.0,
-) -> Dict[str, str]:
+):
     """
     Export timelines for all workers
     
@@ -179,19 +178,95 @@ def export_all_workers(
     Returns:
         {worker_name: output_file} dictionary
     """
+
+    workers = list(WORKER_EVENTS.keys())
+
+    output_file = f"{output_file}"
+    try:
+        export_to_perfetto(schedule, workers, output_file, clock_rate_mhz)
+    except Exception as e:
+        print(f"✗ Failed to export workers: {e}")
     
-    results = {}
+   
+def export_consumer_chunks(
+    schedule,
+    output_file: str = "timeline_consumer_chunks.json",
+    clock_rate_mhz: float = 1800.0,
+) -> str:
+    """
+    Export consumer chunk timing data to Perfetto Chrome Trace Event Format
     
-    for worker_name in WORKER_EVENTS.keys():
-        try:
-            output_file = f"{output_dir}/timeline_{worker_name}.json"
-            export_to_perfetto(schedule, worker_name, output_file, clock_rate_mhz)
-            results[worker_name] = output_file
-        except Exception as e:
-            print(f"✗ Failed to export {worker_name}: {e}")
+    Args:
+        schedule: Schedule object containing globs (with timings and instructions)
+        output_file: Output file name
+        clock_rate_mhz: GPU clock frequency (MHz)
     
-    print(f"\nExported {len(results)} workers")
-    return results
+    Returns:
+        Output file path
+    """
+    
+    timings = schedule.globs.timings.cpu()  # [num_sms, max_queue_len, 128]
+    instructions = schedule.globs.instructions.cpu()  # [num_sms, max_queue_len, 32]
+    
+    events = []
+    
+    # Iterate over all SMs and instructions
+    for sm_id in range(timings.shape[0]):
+        for instr_idx in range(timings.shape[1]):
+
+            opcode = instructions[sm_id, instr_idx, 0].item()
+            op_name = OPCODE_NAMES.get(opcode, f"Op{opcode}")
+
+            # Each instruction may have up to 64 chunks (2 events per chunk)
+            for chunk_id in range(64):
+                start_event_id = 2 * chunk_id
+                end_event_id = start_event_id + 1
+                
+                start_cycles = timings[sm_id, instr_idx, start_event_id].item()
+                end_cycles = timings[sm_id, instr_idx, end_event_id].item()
+                
+                if start_cycles <= 0 or end_cycles <= 0:
+                    continue
+                
+                # convert to microseconds
+                start_us = start_cycles / clock_rate_mhz
+                end_us = end_cycles / clock_rate_mhz
+                duration_us = end_us - start_us
+                
+                if duration_us <= 0:
+                    continue
+                
+                # event_name = f"op_name_{chunk_id}"
+                
+                event = {
+                    "name": op_name,
+                    "ph": "X",
+                    "ts": start_us,
+                    "dur": duration_us,
+                    "pid": sm_id,
+                    "tid": f"consumer",
+                    "args": {
+                        "sm_id": sm_id,
+                        "instruction_index": instr_idx,
+                        "chunk_id": chunk_id,
+                        "start_cycles": start_cycles,
+                        "end_cycles": end_cycles,
+                        "start_us": start_us,
+                        "end_us": end_us,
+                    },
+                }
+                
+                events.append(event)
+    
+    # Write JSON file
+    with open(output_file, 'w') as f:
+        json.dump(events, f, indent=2)
+    
+    print(f"✓ Exported {len(events)} consumer chunk events to {output_file}")
+    # return output_file
+
+    return output_file
+
 
 
 def merge_traces(*trace_files: str, output_file: str = "merged_trace.json") -> str:
