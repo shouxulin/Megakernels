@@ -11,8 +11,10 @@ from megakernels.utils import get_sm_count
 class BaseGlobals:
     # model parameters, all layers stacked together in order
     qkv_proj_weights: Tensor
+    qkv_proj_weights_host: Tensor
     attn_ln_weights: Tensor
     o_proj_weights: Tensor
+    o_proj_weights_host: Tensor
     mlp_ln_weights: Tensor
     up_proj_weights: Tensor
     gate_proj_weights: Tensor

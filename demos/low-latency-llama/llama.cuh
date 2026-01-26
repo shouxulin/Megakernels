@@ -111,8 +111,10 @@ struct globals_t {
 
     // model weights
     weights_t qkv_weights;
+    weights_t qkv_weights_host;
     norm_weights_t attn_norm_weights;
     weights_t o_weights;
+    weights_t o_weights_host;
     norm_weights_t mlp_norm_weights;
     weights_t up_weights;
     weights_t gate_weights;

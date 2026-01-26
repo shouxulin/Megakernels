@@ -50,6 +50,8 @@ def make_globals(
 
     gate_proj_host = stacked_params.gate_proj.clone().to("cpu").pin_memory()
     up_proj_host = stacked_params.up_proj.clone().to("cpu").pin_memory()
+    qkv_proj_weights_host = stacked_params.qkv_proj.clone().to("cpu").pin_memory()
+    o_proj_weights_host = stacked_params.o_proj.clone().to("cpu").pin_memory()
 
 
 
@@ -68,7 +70,9 @@ def make_globals(
     return Globals(
         # model params
         qkv_proj_weights=stacked_params.qkv_proj,
+        qkv_proj_weights_host=qkv_proj_weights_host,
         o_proj_weights=stacked_params.o_proj,
+        o_proj_weights_host=o_proj_weights_host,
         attn_ln_weights=stacked_params.attn_ln_weight,
         mlp_ln_weights=stacked_params.mlp_ln_weight,
         up_proj_weights=stacked_params.up_proj,

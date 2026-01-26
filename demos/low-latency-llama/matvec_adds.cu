@@ -7,7 +7,7 @@
 using namespace kittens;
 using namespace megakernel;
 
-template <int _EXPECTED_ARRIVAL_COUNT, auto WeightsPtr,
+template <int _EXPECTED_ARRIVAL_COUNT, auto WeightsPtr, auto WeightsPtr_host,
           auto InputActivationsPtr, auto OutputActivationsPtr, int _opcode,
           int _prev_opcode = 0,
           typename Config = default_config,
@@ -43,13 +43,33 @@ struct MatVecAddOp {
         load_iter(megakernel::state<Config> &s, const globals &g, parsed_instruction &inst,
                   int iter, int col_idx, kittens::st_bf<16, 512> &weight_chunk,
                   kittens::semaphore &sem) {
-            kittens::tma::load_async<dim::ROW, cache_policy::EVICT_FIRST>(
-                weight_chunk, g.*WeightsPtr,
-                coord<>{inst.layer,
-                        (inst.start_block_idx + iter) *
-                            Globals::matvec_block_size,
-                        inst.start_reduction_col + 512 * col_idx},
-                sem);
+
+            // kittens::tma::load_async<dim::ROW, cache_policy::EVICT_FIRST>(
+            //         weight_chunk, g.*WeightsPtr,
+            //         coord<>{inst.layer,
+            //                 (inst.start_block_idx + iter) *
+            //                     Globals::matvec_block_size,
+            //                 inst.start_reduction_col + 512 * col_idx},
+            //         sem);
+
+
+            if (opcode==OPCODE_O_ProjResidual) {
+                kittens::tma::load_async<dim::ROW, cache_policy::EVICT_FIRST>(
+                    weight_chunk, g.*WeightsPtr_host,
+                    coord<>{inst.layer,
+                            (inst.start_block_idx + iter) *
+                                Globals::matvec_block_size,
+                            inst.start_reduction_col + 512 * col_idx},
+                    sem);
+            } else { // down proj
+                kittens::tma::load_async<dim::ROW, cache_policy::EVICT_FIRST>(
+                    weight_chunk, g.*WeightsPtr,
+                    coord<>{inst.layer,
+                            (inst.start_block_idx + iter) *
+                                Globals::matvec_block_size,
+                            inst.start_reduction_col + 512 * col_idx},
+                    sem);
+            }
         }
 
         static __device__ inline void store(megakernel::state<Config> &s, const globals &g,
@@ -181,13 +201,13 @@ struct MatVecAddOp {
 template <typename Config, typename Globals>
 struct downproj : MatVecAddOp<llama_1b_globals::hidden_dim /
                                   llama_1b_globals::matvec_block_size,
-                              &Globals::down_weights, &Globals::silu_out,
+                              &Globals::down_weights, &Globals::down_weights, &Globals::silu_out,
                               &Globals::hidden_states, OPCODE_DownProjResidual,
                               OPCODE_DownProjResidual - 1, Config, Globals> {};
 
 template <typename Config, typename Globals>
 struct o_proj : MatVecAddOp<llama_1b_globals::num_attention_heads,
-                            &Globals::o_weights, &Globals::attn_out,
+                            &Globals::o_weights, &Globals::o_weights_host, &Globals::attn_out,
                             &Globals::hidden_states, OPCODE_O_ProjResidual,
                             OPCODE_O_ProjResidual - 1, Config, Globals> {};
 

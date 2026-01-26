@@ -32,8 +32,10 @@ PYBIND11_MODULE(mk_llama, m) {
         m, "mk_llama", &llama_1b_globals::Bar, &llama_1b_globals::instructions,
         &llama_1b_globals::timings,
 
-        &llama_1b_globals::qkv_weights, &llama_1b_globals::attn_norm_weights,
-        &llama_1b_globals::o_weights, &llama_1b_globals::mlp_norm_weights,
+        &llama_1b_globals::qkv_weights,
+        &llama_1b_globals::qkv_weights_host,
+        &llama_1b_globals::attn_norm_weights,
+        &llama_1b_globals::o_weights, &llama_1b_globals::o_weights_host, &llama_1b_globals::mlp_norm_weights,
         &llama_1b_globals::up_weights, &llama_1b_globals::gate_weights,
         &llama_1b_globals::up_weights_host, &llama_1b_globals::gate_weights_host,
         &llama_1b_globals::down_weights,

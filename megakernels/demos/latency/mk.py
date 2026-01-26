@@ -19,8 +19,10 @@ def interpret_with_mk(
         globs.timings,
         # weights
         globs.qkv_proj_weights,
+        globs.qkv_proj_weights_host,
         globs.attn_ln_weights,
         globs.o_proj_weights,
+        globs.o_proj_weights_host,
         globs.mlp_ln_weights,
         globs.up_proj_weights,
         globs.gate_proj_weights,
