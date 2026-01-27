@@ -21,6 +21,7 @@ class BaseGlobals:
     up_proj_weights_host: Tensor
     gate_proj_weights_host: Tensor
     down_proj_weights: Tensor
+    down_proj_weights_host: Tensor
     lm_head_norm_weights: Tensor
     lm_head_weights: Tensor
     k_cache: Tensor

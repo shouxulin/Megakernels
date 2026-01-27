@@ -29,6 +29,7 @@ def interpret_with_mk(
         globs.up_proj_weights_host,
         globs.gate_proj_weights_host,
         globs.down_proj_weights,
+        globs.down_proj_weights_host,
         globs.lm_head_norm_weights.data,
         globs.lm_head_weights.data,
         fourD_k_cache,
