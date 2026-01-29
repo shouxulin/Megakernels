@@ -32,6 +32,7 @@ def interpret_with_mk(
         globs.down_proj_weights_host,
         globs.lm_head_norm_weights.data,
         globs.lm_head_weights.data,
+        globs.lm_head_weights_host.data,
         fourD_k_cache,
         fourD_v_cache,
         # rope

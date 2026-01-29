@@ -40,7 +40,7 @@ PYBIND11_MODULE(mk_llama, m) {
         &llama_1b_globals::up_weights_host, &llama_1b_globals::gate_weights_host,
         &llama_1b_globals::down_weights,  &llama_1b_globals::down_weights_host,
         &llama_1b_globals::lm_head_norm_weights,
-        &llama_1b_globals::lm_head_weights, &llama_1b_globals::k_cache,
+        &llama_1b_globals::lm_head_weights, &llama_1b_globals::lm_head_weights_host, &llama_1b_globals::k_cache,
         &llama_1b_globals::v_cache,
 
         &llama_1b_globals::rope_cos, &llama_1b_globals::rope_sin,

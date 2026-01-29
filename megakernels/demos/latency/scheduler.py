@@ -53,6 +53,7 @@ def make_globals(
     qkv_proj_weights_host = stacked_params.qkv_proj.clone().to("cpu").pin_memory()
     o_proj_weights_host = stacked_params.o_proj.clone().to("cpu").pin_memory()
     down_proj_weights_host = stacked_params.down_proj.clone().to("cpu").pin_memory()
+    lm_head_weights_host = model.lm_head.lm_head.weight.clone().to("cpu").pin_memory()
 
 
     max_attn_partitions = get_sm_count(device)
@@ -83,6 +84,7 @@ def make_globals(
         down_proj_weights_host=down_proj_weights_host,
         lm_head_norm_weights=model.lm_head.input_norm.weight,
         lm_head_weights=model.lm_head.lm_head.weight,
+        lm_head_weights_host=lm_head_weights_host,
         k_cache=model.stacked_kv_cache[0],
         v_cache=model.stacked_kv_cache[1],
         rope_cos=model.model.rope_cos,

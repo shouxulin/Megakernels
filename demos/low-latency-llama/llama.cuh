@@ -124,6 +124,7 @@ struct globals_t {
     weights_big_indim_t down_weights_host;
     norm_weights_t lm_head_norm_weights;
     weights_t lm_head_weights;
+    weights_t lm_head_weights_host;
     // kv cache
     kv_cache_t k_cache;
     kv_cache_t v_cache;
